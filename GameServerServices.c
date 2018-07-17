@@ -26,6 +26,17 @@ void init(){
 	printf("Running init\n");
 	
 	grid = malloc(GRIDWIDTH*GRIDHEIGHT*sizeof(char));
+	int x, y;
+	for(y = 0; y < GRIDHEIGHT; ++y){
+		for(x = 0; x < GRIDWIDTH; ++x){
+			if(player1.x - player1.widthr <= x && player1.x + player1.widthr >= x
+				&& player1.y - player1.heightr <= y && player1.y + player1.heightr >= y)
+				*(grid + x + y*GRIDWIDTH) = '#';
+			else
+				*(grid + x + y*GRIDWIDTH) = '_';
+		}
+	}
+	
 	INITCOMPLETE = true;
 }
 
@@ -90,7 +101,7 @@ char** getgrid_1_svc(void* vptr, struct svc_req *rqstp){
 	int x, y;
 	for(y = 0; y < GRIDHEIGHT; ++y){
 		for(x = 0; x < GRIDWIDTH; ++x)
-			**(outGrid + x + y*GRIDWIDTH) = *(grid + x + y*GRIDWIDTH);
+			*(*outGrid + x + y*GRIDWIDTH) = *(grid + x + y*GRIDWIDTH);
 	}
 	
 	return outGrid;
