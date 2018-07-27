@@ -5,6 +5,7 @@
 
 #include <memory.h> /* for memset */
 #include "GameServer.h"
+#include <math.h>
 
 /* Default timeout can be changed using clnt_control() */
 static struct timeval TIMEOUT = { 25, 0 };

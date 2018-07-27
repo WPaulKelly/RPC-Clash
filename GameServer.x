@@ -4,7 +4,7 @@
 
 program GAME_SERVER{
 	version SERVER_VERSION{
-		char sendCommand(char) = 1;
+		char sendCommand(char, int) = 1;
 		string getGrid() = 2;
 		int getXMax() = 3;
 		int getYMax() = 4;
