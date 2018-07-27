@@ -1,7 +1,16 @@
+/*
+ * William Paul Kelly
+ * Independent creation
+ * 7/22/2018
+ * Proof of concept for online multiplayer game system
+ *
+ * This code relies on Oracle's Sun rpc to function.
+*/
+
 #include <stdio.h>
 #include "GameServer.h"
 
-//Code copied from stackOverflow
+//Code copied from stackOverflow - causes terminal to accept unbuffered input
 #include <termios.h>
 
 static struct termios old, new;
@@ -72,11 +81,16 @@ int main(int argc, char** argv){
 		printf("Error in client creation\n");
 		return 1;
 	}
+	cli->cl_auth = authunix_create_default(); //Apparently the machines are using an older version of sun rpc... Should be authsys
+	
+	//DEBUG
+	//printf("The value stored in cli.rq_clntcred is %x!", cli.rq_clntcred);
+	//printf("The value pointed to by cli->rq_clntcred is %x!", cli->rq_clntcred);
 	
 	//DEBUG
 	printf("Initializing variables\n");
 	char in = 0;
-	char result = 0;
+	char result;
 	int xmax = *getxmax_1(NULL, cli);
 	int ymax = *getymax_1(NULL, cli);
 	char* grid = malloc(xmax*ymax*sizeof(char));
@@ -95,4 +109,5 @@ int main(int argc, char** argv){
 	}
 	
 	free(grid);
+	auth_destroy(cli->cl_auth);
 }

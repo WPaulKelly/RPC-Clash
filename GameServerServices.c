@@ -1,3 +1,12 @@
+/*
+ * William Paul Kelly
+ * Independent creation
+ * 7/22/2018
+ * Proof of concept for online multiplayer game system
+ *
+ * This code relies on Oracle's Sun rpc to function.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -6,15 +15,20 @@
 bool INITCOMPLETE = false;
 #define GRIDWIDTH 15
 #define GRIDHEIGHT 15
+#define MAXPLAYERS 10
 
-typedef struct p {
+typedef struct {
 	int x;
 	int y;
 	int widthr;
 	int heightr;
 } player;
 
+//Global variables, bad practice
 player player1 = {7, 7, 1, 1};
+int curPlayers = 0;
+player** playerArray[MAXPLAYERS];
+int ids[MAXPLAYERS];
 char* grid;
 
 int mymax(int a, int b){ return a > b ? a : b; }
@@ -45,6 +59,7 @@ void updateGrid(){
 	
 	int x, y;
 	
+	//Should be updated for multiple players
 	for(y = 0; y < GRIDHEIGHT; ++y){
 		for(x = 0; x < GRIDWIDTH; ++x){
 			if(player1.x - player1.widthr <= x && player1.x + player1.widthr >= x
@@ -56,9 +71,33 @@ void updateGrid(){
 	}
 }
 
+//UNFINISHED
+int addPlayer(int uid){
+	int i;
+	for(i = 0; i < MAXPLAYERS; ++i){
+		if(playerArray[i] == 0){
+			playerArray[i] = uid;
+			curPlayers++;
+			return i;
+		}
+	}
+}
+
+//UNFINISHED
+void removePlayer(int uid){
+	int i;
+	for(i = 0; i < curPlayers; ++i)
+		if(playerArray[i] == uid){
+			playerArray[0] = 0;
+			curPlayers--;
+			return;
+		}
+}
+
 char* sendcommand_1_svc(char* in,  struct svc_req *rqstp){
 	//DEBUG
-	printf("Got call to sendcommand\n");
+	struct authunix_parms* sys_cred = (struct authunix_parms*)rqstp->rq_clntcred;
+	printf("Got call to sendcommand from client %x\n", sys_cred->aup_uid);
 	
 	if(INITCOMPLETE == false) init();
 	static char out;
