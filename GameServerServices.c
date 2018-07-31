@@ -16,19 +16,24 @@ bool INITCOMPLETE = false;
 #define GRIDWIDTH 15
 #define GRIDHEIGHT 15
 #define MAXPLAYERS 10
+#define UIDSENTINEL 0
+#define PIDSENTINEL -1
+#define PWIDTHR 1
+#define PHEIGHTR 1
 
 typedef struct {
 	int x;
 	int y;
 	int widthr;
 	int heightr;
+	int state;	//Would be an enum, but those are finicky in c
 } player;
 
 //Global variables, bad practice
-player player1 = {7, 7, 1, 1};
 int curPlayers = 0;
-player** playerArray[MAXPLAYERS];
-int ids[MAXPLAYERS];
+player** playerArray;
+int playerIds[MAXPLAYERS] = {0};
+char pidtochar[10] = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'};
 char* grid;
 
 int mymax(int a, int b){ return a > b ? a : b; }
@@ -36,20 +41,16 @@ int mymax(int a, int b){ return a > b ? a : b; }
 int mymin(int a, int b){ return a < b ? a : b; }
 
 void init(){
-	//DEBUG
-	printf("Running init\n");
+	playerArray = malloc(MAXPLAYERS*sizeof(player*));
+	int i;
+	for(i = 0; i < MAXPLAYERS; ++i)
+		*(playerArray+i) = malloc(sizeof(player));
 	
 	grid = malloc(GRIDWIDTH*GRIDHEIGHT*sizeof(char));
 	int x, y;
-	for(y = 0; y < GRIDHEIGHT; ++y){
-		for(x = 0; x < GRIDWIDTH; ++x){
-			if(player1.x - player1.widthr <= x && player1.x + player1.widthr >= x
-				&& player1.y - player1.heightr <= y && player1.y + player1.heightr >= y)
-				*(grid + x + y*GRIDWIDTH) = '#';
-			else
-				*(grid + x + y*GRIDWIDTH) = '_';
-		}
-	}
+	for(y = 0; y < GRIDHEIGHT; ++y)
+		for(x = 0; x < GRIDWIDTH; ++x)
+			*(grid + x + y*GRIDWIDTH) = '_';
 	
 	INITCOMPLETE = true;
 }
@@ -57,69 +58,138 @@ void init(){
 void updateGrid(){
 	if(INITCOMPLETE == false) init();
 	
-	int x, y;
-	
-	//Should be updated for multiple players
+	int x, y, p;
+	//Could be optimized to stop after checking curPlayers number of players
+	//Could also be optimized to not check for player centers around grid borders
 	for(y = 0; y < GRIDHEIGHT; ++y){
 		for(x = 0; x < GRIDWIDTH; ++x){
-			if(player1.x - player1.widthr <= x && player1.x + player1.widthr >= x
-				&& player1.y - player1.heightr <= y && player1.y + player1.heightr >= y)
-				*(grid + x + y*GRIDWIDTH) = '#';
-			else
-				*(grid + x + y*GRIDWIDTH) = '_';
+			*(grid + x + y*GRIDWIDTH) = '_'; //Keeps player drawing from taking previous positions into account
+			for(p = 0; p < MAXPLAYERS; ++p){
+				player* curp = (player*)*(playerArray+p);
+				//Does the current index even have a player in it
+				if(playerIds[p] == UIDSENTINEL)
+					continue;
+				//Is the current grid tile the center of a player
+				if(curp->x == x && curp->y == y){
+					//DEBUG
+					printf("Found player %d at coords %d, %d\n", p + 1, x, y);
+					*(grid + x + y*GRIDWIDTH) = pidtochar[p];
+				}
+				//Is the current grid tile a part of a player
+				else if(curp->x - curp->widthr <= x && curp->x + curp->widthr >= x
+					&& curp->y - curp->heightr <= y && curp->y + curp->heightr >= y){
+					//What state is the player currently in
+					if(curp->state == 2)
+						*(grid + x + y*GRIDWIDTH) = '#';
+					else if(curp->state == 1)
+						*(grid + x + y*GRIDWIDTH) = '~';
+				}
+				//If neither, keeps the current tile value
+			}
 		}
 	}
 }
 
-//UNFINISHED
 int addPlayer(int uid){
+	//DEBUG
+	printf("Got call to add player for uid %x\n", uid);
+	
+	if(curPlayers == MAXPLAYERS)
+		return PIDSENTINEL;
+	
 	int i;
 	for(i = 0; i < MAXPLAYERS; ++i){
-		if(playerArray[i] == 0){
-			playerArray[i] = uid;
+		if(playerIds[i] == UIDSENTINEL){
+			playerIds[i] = uid;
 			curPlayers++;
+			
+			//Construct new player
+			player* p = *(playerArray+i);
+			p->x = PWIDTHR;
+			p->y = PHEIGHTR;
+			p->widthr = PWIDTHR;
+			p->heightr = PHEIGHTR;
+			p->state = 1;
+			
 			return i;
 		}
 	}
+	//This statement should be unreachable, but prevents the compiler from complaining
+	return PIDSENTINEL;
 }
 
-//UNFINISHED
 void removePlayer(int uid){
 	int i;
-	for(i = 0; i < curPlayers; ++i)
-		if(playerArray[i] == uid){
-			playerArray[0] = 0;
+	for(i = 0; i < MAXPLAYERS; ++i)
+		if(playerIds[i] == uid){
+			playerIds[i] = UIDSENTINEL;
 			curPlayers--;
 			return;
 		}
 }
 
+//Could be optimized to stop searching after finding curPlayers valid uids
+int uidtopid(int uid){
+	int i;
+	for(i = 0; i < MAXPLAYERS; ++i)
+		if(playerIds[i] == uid)
+			return i;
+	return PIDSENTINEL;
+}
+
 char* sendcommand_1_svc(char* in,  struct svc_req *rqstp){
-	//DEBUG
-	struct authunix_parms* sys_cred = (struct authunix_parms*)rqstp->rq_clntcred;
-	printf("Got call to sendcommand from client %x\n", sys_cred->aup_uid);
-	
 	if(INITCOMPLETE == false) init();
+	
+	int uid = ((struct authunix_parms*)rqstp->rq_clntcred)->aup_uid;
+	int pid = uidtopid(uid);
+	if(pid == PIDSENTINEL)
+		pid = addPlayer(uid);	//Check if valid pid was created, send error to client if not
+	player* p = (player*)*(playerArray+pid);
+	
+	//DEBUG
+	printf("Got call to sendcommand with current pids:\t");
+	for(int i = 0; i < MAXPLAYERS; ++i)
+		printf("%x\t", playerIds[i]);
+	printf("\n");
+		
 	static char out;
+	int x;
 	
 	switch(*in){
-		case 'w':
-			player1.y = mymax(player1.heightr, player1.y - player1.heightr);
+		case 'w':	//Move up
+			//Check spaces above for player borders
+			/*for(x = p->x - p->widthr; x <= p->x + p->widthr; ++x){
+				if(*(grid + x + (p->y + p->heightr + 1)*GRIDWIDTH) == '#'){
+					x = -1;
+					break;
+				}
+			}
+			p->y = (x == -1) ? p->y : mymax(p->heightr, p->y - p->heightr);*/
+			p->y = mymax(p->heightr, p->y - p->heightr);
 			out = 1;
 			break;
-		case 'a':
-			player1.x = mymax(player1.widthr, player1.x - player1.widthr);
+		case 'a':	//Move left
+			p->x = mymax(p->widthr, p->x - p->widthr);
 			out = 2;
 			break;
-		case 's':
-			player1.y = mymin(GRIDHEIGHT - player1.heightr - 1, player1.y + player1.heightr);
+		case 's':	//Move down
+			p->y = mymin(GRIDHEIGHT - p->heightr - 1, p->y + p->heightr);
 			out = 3;
 			break;
-		case 'd':
-			player1.x = mymin(GRIDWIDTH - player1.widthr - 1, player1.x + player1.widthr);
+		case 'd':	//Move right
+			p->x = mymin(GRIDWIDTH - p->widthr - 1, p->x + p->widthr);
 			out = 4;
 			break;
-		case 10: out = 5; break;
+		case 10:	//Disconnect
+			removePlayer(uid);
+			out = 5; 
+			break;
+		case ' ':	//Spawn
+			switch(p->state){
+				case 0: p->state = 1; break;
+				case 1: p->state = 2; break;
+				case 2: break;
+			}
 		default: out = -1;
 	}
 	
@@ -129,9 +199,6 @@ char* sendcommand_1_svc(char* in,  struct svc_req *rqstp){
 }
 
 char** getgrid_1_svc(void* vptr, struct svc_req *rqstp){
-	//DEBUG
-	printf("Got call to getgrid\n");
-	
 	if(INITCOMPLETE == false) init();
 	static char** outGrid;
 	outGrid = (char**)malloc(sizeof(char*));
