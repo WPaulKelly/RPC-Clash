@@ -153,31 +153,51 @@ char* sendcommand_1_svc(char* in,  struct svc_req *rqstp){
 	printf("\n");
 		
 	static char out;
-	int x;
+	int i;
 	
 	switch(*in){
 		case 'w':	//Move up
 			//Check spaces above for player borders
-			/*for(x = p->x - p->widthr; x <= p->x + p->widthr; ++x){
-				if(*(grid + x + (p->y + p->heightr + 1)*GRIDWIDTH) == '#'){
-					x = -1;
+			for(i = p->x - p->widthr; i <= p->x + p->widthr; ++i){
+				if(*(grid + i + (p->y - p->heightr - 1)*GRIDWIDTH) == '#'){
+					i = -1;
 					break;
 				}
 			}
-			p->y = (x == -1) ? p->y : mymax(p->heightr, p->y - p->heightr);*/
-			p->y = mymax(p->heightr, p->y - p->heightr);
+			p->y = (i == -1) ? p->y : mymax(p->heightr, p->y - p->heightr);
 			out = 1;
 			break;
 		case 'a':	//Move left
-			p->x = mymax(p->widthr, p->x - p->widthr);
+			//Check spaces to the left for player borders
+			for(i = p->y - p->heightr; i <= p->y + p->heightr; ++i){
+				if(*(grid + (p->x - p->widthr - 1) + i*GRIDWIDTH) == '#'){
+					i = -1;
+					break;
+				}
+			}
+			p->x = (i == -1) ? p->x : mymax(p->widthr, p->x - p->widthr);
 			out = 2;
 			break;
 		case 's':	//Move down
-			p->y = mymin(GRIDHEIGHT - p->heightr - 1, p->y + p->heightr);
+			//Check spaces below for player borders
+			for(i = p->x - p->widthr; i <= p->x + p->widthr; ++i){
+				if(*(grid + i + (p->y + p->heightr + 1)*GRIDWIDTH) == '#'){
+					i = -1;
+					break;
+				}
+			}
+			p->y = (i == -1) ? p->y : mymin(GRIDHEIGHT - p->heightr - 1, p->y + p->heightr);
 			out = 3;
 			break;
 		case 'd':	//Move right
-			p->x = mymin(GRIDWIDTH - p->widthr - 1, p->x + p->widthr);
+			//Check spaces to the right for player borders
+			for(i = p->y - p->heightr; i <= p->y + p->heightr; ++i){
+				if(*(grid + (p->x + p->widthr + 1) + i*GRIDWIDTH) == '#'){
+					i = -1;
+					break;
+				}
+			}
+			p->x = (i == -1) ? p->x : mymin(GRIDWIDTH - p->widthr - 1, p->x + p->widthr);
 			out = 4;
 			break;
 		case 10:	//Disconnect
